@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Wrench, Calendar, ChevronDown, Check } from 'lucide-react';
-import { COMPONENT_OPTIONS, TIMEFRAME_OPTIONS } from '../storage';
+import { COMPONENT_OPTIONS, TIMEFRAME_OPTIONS } from '../types';
 
 export interface DeferredRepairSelection {
   enabled: boolean;

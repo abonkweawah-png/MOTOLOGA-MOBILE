@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Camera, Check, Plus, Wrench, ShieldCheck, Phone, Car, Gauge, Image as ImageIcon } from 'lucide-react';
-import { MECHANICS_LIST } from '../data/initialJobs';
-import { Job, JobStatus } from '../types';
+import { MECHANICS_LIST, Job, JobStatus } from '../types';
 import { PhotoCaptureModal } from './PhotoCaptureModal';
 import { MotologaLogo } from './MotologaLogo';
 import { VoiceRecorderField } from './VoiceRecorderField';

@@ -3,9 +3,8 @@ import { Job, DeferredRepair, DeferredTimeframe } from '../types';
 import { LicensePlateBadge } from './LicensePlateBadge';
 import { StatusChip } from './StatusChip';
 import { MotologaLogo } from './MotologaLogo';
-import { DEFERRED_COMPONENTS } from '../data/initialJobs';
+import { DEFERRED_COMPONENTS } from '../types';
 import { DeferredRepairToggle, DeferredRepairSelection } from './DeferredRepairToggle';
-import { addDeferredRepair } from '../storage';
 import {
   Banknote,
   Car,
@@ -141,20 +140,26 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
 
     // If deferred repair is flagged, record it into MOTOLOGA's follow-up system
     if (flagDeferred) {
-      const newFollowUp = addDeferredRepair({
+      const newFollowUp = {
+        id: `def-${Date.now()}`,
+        status: 'pending' as const,
         vehiclePlate: currentJob.licensePlate,
         customerPhone: currentJob.customerPhone,
         componentToFix: deferredComponent,
         targetDateString: deferredTimeframe,
-      });
+      };
       if (onAddDeferredRepair) {
         onAddDeferredRepair(newFollowUp);
       }
     }
 
     const messageText = generateWhatsAppInvoiceText(updatedJob, feeAmount);
-    const cleanPhone = currentJob.customerPhone.replace(/[^0-9]/g, '');
-    const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(messageText)}`;
+    
+    let cleanPhone = currentJob.customerPhone.replace(/\D/g, '');
+    if (cleanPhone.startsWith('237')) cleanPhone = cleanPhone.slice(3);
+    if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.slice(1);
+    
+    const waUrl = `https://wa.me/237${cleanPhone}?text=${encodeURIComponent(messageText)}`;
 
     // Open WhatsApp link
     try {

@@ -70,3 +70,41 @@ export interface WorkerProfile {
   isFollowing?: boolean;
   createdAt: number;
 }
+
+export const COMPONENT_OPTIONS = [
+  'Brake Pads',
+  'Timing Belt',
+  'Suspension',
+  'AC System',
+  'General Service',
+];
+export const TIMEFRAME_OPTIONS = [
+  'Next Week',
+  'In 2 Weeks',
+  'End of Month',
+];
+export const DEFERRED_COMPONENTS = [
+  'Brake Pads / Plaquettes de frein',
+  'Timing Belt / Courroie de distribution',
+  'Shock Absorbers / Amortisseurs',
+  'Clutch Disc / Disque d\'embrayage',
+  'Oil & Filter / Vidange & Filtre',
+  'Front Ball Joints / Rotules de suspension',
+  'Alternator Belt / Courroie d\'alternateur',
+  'Battery Replacement / Batterie',
+  'Tires Replacement / Pneumatiques'
+];
+export const MECHANICS_LIST = ['Jean', 'Paul', 'Michel', 'Ibrahim', 'Unassigned'];
+
+export function sanitizeCameroonPhone(phone: string): string {
+  let cleaned = phone.replace(/\D/g, '');
+  if (cleaned.startsWith('237')) cleaned = cleaned.slice(3);
+  if (cleaned.startsWith('0')) cleaned = cleaned.slice(1);
+  return cleaned;
+}
+
+export function generateWhatsAppReminderUrl(customerPhone: string, componentToFix: string, vehiclePlate: string): string {
+  const cleanPhone = sanitizeCameroonPhone(customerPhone);
+  const message = `Bonjour, this is MOTOLOGA Garage. You asked us to remind you regarding the ${componentToFix} for vehicle ${vehiclePlate}. Are you available to bring the car in soon?`;
+  return `https://wa.me/237${cleanPhone}?text=${encodeURIComponent(message)}`;
+}

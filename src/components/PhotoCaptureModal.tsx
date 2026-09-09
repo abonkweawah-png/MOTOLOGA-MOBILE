@@ -20,6 +20,7 @@ export const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [preview, setPreview] = useState<string>(currentPhotoUrl || '');
+  const [previewSizeKb, setPreviewSizeKb] = useState<number | null>(null);
 
   if (!isOpen) return null;
 
@@ -29,7 +30,44 @@ export const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
       const reader = new FileReader();
       reader.onload = () => {
         if (typeof reader.result === 'string') {
-          setPreview(reader.result);
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const MAX_WIDTH = 800;
+            const MAX_HEIGHT = 800;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > height) {
+              if (width > MAX_WIDTH) {
+                height *= MAX_WIDTH / width;
+                width = MAX_WIDTH;
+              }
+            } else {
+              if (height > MAX_HEIGHT) {
+                width *= MAX_HEIGHT / height;
+                height = MAX_HEIGHT;
+              }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0, width, height);
+
+            canvas.toBlob((blob) => {
+              if (blob) {
+                const sizeKb = Math.round(blob.size / 1024);
+                if (sizeKb > 300) {
+                  console.warn(`Compressed image exceeds 300KB (${sizeKb} KB). Compression limits hit.`);
+                }
+                setPreviewSizeKb(sizeKb);
+                const objectUrl = URL.createObjectURL(blob);
+                setPreview(objectUrl);
+              }
+            }, 'image/jpeg', 0.6);
+          };
+          img.src = reader.result;
         }
       };
       reader.readAsDataURL(file);
@@ -74,12 +112,20 @@ export const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
         <div className="p-4 flex-1 overflow-y-auto space-y-4">
           <div className="relative aspect-4/3 w-full bg-stone-950 rounded-xl overflow-hidden border border-stone-800 flex items-center justify-center group">
             {preview ? (
-              <img
-                src={preview}
-                alt="Captured asset"
-                className="w-full h-full object-cover"
-                referrerPolicy="no-referrer"
-              />
+              <>
+                <img
+                  src={preview}
+                  alt="Captured asset"
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+                {previewSizeKb !== null && (
+                  <div className="absolute top-3 right-3 bg-stone-950/80 border border-emerald-500/50 backdrop-blur-md px-2 py-1 flex items-center gap-1.5 rounded-lg z-10 shadow-lg">
+                    <span className="text-[10px] uppercase font-black tracking-wider text-emerald-400">📦 Size:</span>
+                    <span className="text-xs font-mono font-bold text-white">{previewSizeKb} KB</span>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="text-center p-6 space-y-2">
                 <Camera className="w-14 h-14 text-emerald-400 mx-auto stroke-[1.5]" />
@@ -137,7 +183,7 @@ export const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
           {preview && (
             <button
               type="button"
-              onClick={() => setPreview('')}
+              onClick={() => { setPreview(''); setPreviewSizeKb(null); }}
               className="min-h-[48px] px-4 rounded-xl bg-stone-800 text-rose-300 hover:bg-stone-700 font-bold text-sm flex items-center justify-center gap-1.5 active:scale-95"
             >
               <RefreshCw className="w-4 h-4" />

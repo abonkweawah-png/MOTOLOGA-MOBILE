@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Job, GarageStats, WorkerProfile, WorkerStatus, DeferredRepair } from './types';
-import { loadJobs, saveJobs, REVENUE_STORAGE_KEY } from './data/initialJobs';
-import { loadWorkers, saveWorkers } from './data/initialWorkers';
-import { getStoredDeferredRepairs, saveStoredDeferredRepairs } from './storage';
+import { Job, WorkerProfile, WorkerStatus, DeferredRepair, GarageStats } from './types';
 import { IntakeScreen } from './components/IntakeScreen';
 import { MechanicQueueScreen } from './components/MechanicQueueScreen';
 import { CheckoutScreen } from './components/CheckoutScreen';
 import { WorkersScreen } from './components/WorkersScreen';
 import { MotologaLogo } from './components/MotologaLogo';
 import { AnimatedTabBar, TabItem } from './components/ui/animated-tab-bar';
+import { LoginScreen } from './components/LoginScreen';
+import { supabase } from './lib/supabase';
+import { fetchJobsForGarage, fetchJobsForMechanic, createJob, uploadMedia, updateJobStatus } from './lib/api';
 import {
   PlusCircle,
   Wrench,
@@ -28,72 +28,153 @@ import {
 type TabView = 'intake' | 'queue' | 'checkout' | 'workers';
 
 export default function App() {
+  const [role, setRole] = useState<'owner' | 'mechanic' | null>(null);
+  const [mechanicId, setMechanicId] = useState<string | null>(null);
+  const [garageId, setGarageId] = useState<string | null>(null);
+  
   const [activeTab, setActiveTab] = useState<TabView>('intake');
-  const [jobs, setJobs] = useState<Job[]>(() => loadJobs());
-  const [workers, setWorkers] = useState<WorkerProfile[]>(() => loadWorkers());
-  const [todayRevenue, setTodayRevenue] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem(REVENUE_STORAGE_KEY);
-      if (saved) return Number(saved) || 185000;
-    } catch (e) {
-      // fallback
-    }
-    return 185000;
-  });
-
-  const [deferredRepairs, setDeferredRepairs] = useState<DeferredRepair[]>(() =>
-    getStoredDeferredRepairs()
-  );
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [workers, setWorkers] = useState<WorkerProfile[]>([]);
+  const [todayRevenue, setTodayRevenue] = useState<number>(0);
+  const [deferredRepairs, setDeferredRepairs] = useState<DeferredRepair[]>([]);
   const [selectedCheckoutJobId, setSelectedCheckoutJobId] = useState<string | null>(null);
-  const [isOfflineReady, setIsOfflineReady] = useState<boolean>(true);
   const [showAboutModal, setShowAboutModal] = useState<boolean>(false);
 
-  // Sync to localStorage
   useEffect(() => {
-    saveJobs(jobs);
-  }, [jobs]);
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) console.error(error);
+      if (session) {
+        setRole(prev => prev === 'mechanic' ? 'mechanic' : 'owner');
+        supabase.from('garages').select('id').eq('owner_id', session.user.id).single().then(({ data }) => {
+          if (data) setGarageId(data.id);
+          else {
+            supabase.from('garages').insert({ owner_id: session.user.id, name: 'My Garage' }).select().single().then(res => {
+              if(res.data) setGarageId(res.data.id);
+            });
+          }
+        });
+      }
+    });
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        setRole(prev => {
+          if (prev === 'mechanic') return 'mechanic';
+          supabase.from('garages').select('id').eq('owner_id', session.user.id).single().then(({ data }) => {
+            if (data) setGarageId(data.id);
+          });
+          return 'owner';
+        });
+      } else {
+        setRole(prev => prev === 'owner' ? null : prev);
+      }
+    });
+  }, []);
 
   useEffect(() => {
-    saveWorkers(workers);
-  }, [workers]);
+    if (role === 'owner' && garageId) {
+      loadGarageData();
+    } else if (role === 'mechanic' && mechanicId) {
+      loadMechanicData();
+    }
+  }, [role, garageId, mechanicId]);
 
-  useEffect(() => {
-    saveStoredDeferredRepairs(deferredRepairs);
-  }, [deferredRepairs]);
-
-  useEffect(() => {
-    localStorage.setItem(REVENUE_STORAGE_KEY, todayRevenue.toString());
-  }, [todayRevenue]);
-
-  // Handle adding new job
-  const handleJobCreated = (newJob: Job) => {
-    setJobs((prev) => [newJob, ...prev]);
+  const loadGarageData = async () => {
+    if (!garageId) return;
+    const { data: dbMechanics } = await supabase.from('mechanics').select('*').eq('garage_id', garageId);
+    if(dbMechanics) {
+      setWorkers(dbMechanics.map(m => ({
+        id: m.id,
+        name: m.name,
+        role: 'Worker',
+        specialty: '',
+        phone: '',
+        description: '',
+        image: '',
+        isVerified: true,
+        status: 'active',
+        completedJobs: 0,
+        rating: 5,
+        createdAt: 0
+      })));
+    }
+    
+    const dbJobs = await fetchJobsForGarage(garageId);
+    setJobs(dbJobs);
+    
+    // Revenue sum logic
+    const rev = dbJobs.filter(j => j.released).reduce((acc, j) => acc + (j.laborFeeFcfa || 0), 0);
+    setTodayRevenue(rev);
   };
 
-  // Handle updating an existing job
+  const loadMechanicData = async () => {
+    if (!mechanicId) return;
+    const dbJobs = await fetchJobsForMechanic(mechanicId);
+    setJobs(dbJobs);
+  };
+
+  const handleLoginSuccess = (userRole: 'owner' | 'mechanic', id?: string) => {
+    setRole(userRole);
+    if (userRole === 'mechanic' && id) {
+      setMechanicId(id);
+      setActiveTab('queue'); // Mechanics go straight to queue
+    }
+  };
+
+  const handleJobCreated = async (newJob: Job) => {
+    setJobs((prev) => [newJob, ...prev]);
+    try {
+      const mechanic = workers.find(w => w.name === newJob.mechanicAssigned);
+      await createJob(newJob, garageId!, mechanic?.id || '');
+      
+      let dashboardUrl = newJob.dashboardPhotoUrl;
+      let exteriorUrl = newJob.exteriorPhotoUrl;
+
+      if (dashboardUrl?.startsWith('blob:')) {
+        const blob = await fetch(dashboardUrl).then(res => res.blob());
+        dashboardUrl = await uploadMedia(newJob.id, blob, 'intake_dash');
+        URL.revokeObjectURL(newJob.dashboardPhotoUrl!);
+      }
+      if (exteriorUrl?.startsWith('blob:')) {
+        const blob = await fetch(exteriorUrl).then(res => res.blob());
+        exteriorUrl = await uploadMedia(newJob.id, blob, 'intake_body');
+        URL.revokeObjectURL(newJob.exteriorPhotoUrl!);
+      }
+      
+      setJobs((prev) => prev.map(j => j.id === newJob.id ? { ...j, dashboardPhotoUrl: dashboardUrl, exteriorPhotoUrl: exteriorUrl } : j));
+
+      if(role === 'owner') loadGarageData();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const handleUpdateJob = (updatedJob: Job) => {
     setJobs((prev) => prev.map((j) => (j.id === updatedJob.id ? updatedJob : j)));
   };
 
-  // Handle releasing a vehicle
-  const handleJobReleased = (job: Job, fee: number) => {
-    setJobs((prev) =>
-      prev.map((j) =>
-        j.id === job.id
-          ? {
-              ...j,
-              status: 'Ready/Released',
-              released: true,
-              releasedAt: Date.now(),
-              laborFeeFcfa: fee,
-            }
-          : j
-      )
-    );
-    setTodayRevenue((prev) => prev + fee);
+  const handleJobReleased = async (job: Job, fee: number) => {
+    try {
+      await updateJobStatus(job.id, 'Ready/Released', fee);
+      setJobs((prev) =>
+        prev.map((j) =>
+          j.id === job.id
+            ? {
+                ...j,
+                status: 'Ready/Released',
+                released: true,
+                releasedAt: Date.now(),
+                laborFeeFcfa: fee,
+              }
+            : j
+        )
+      );
+      setTodayRevenue((prev) => prev + fee);
+    } catch (ex) {
+      console.error('Failed to release job', ex);
+    }
   };
 
-  // Handle Workers Management
   const handleAddWorker = (newWorker: WorkerProfile) => {
     setWorkers((prev) => [newWorker, ...prev]);
   };
@@ -108,45 +189,35 @@ export default function App() {
     );
   };
 
-  // Reset / reload initial demo data
-  const handleResetDemo = () => {
-    if (window.confirm('Reset workshop demo records to default?')) {
-      localStorage.clear();
-      window.location.reload();
-    }
+  const handleSignOut = () => {
+    if(role === 'owner') supabase.auth.signOut();
+    setRole(null);
+    setMechanicId(null);
+    setGarageId(null);
   };
 
-  // Quick navigation helpers
-  const handleNavigateToCheckout = (jobId?: string) => {
-    if (jobId) {
-      setSelectedCheckoutJobId(jobId);
-    }
-    setActiveTab('checkout');
-  };
+  if (!role) {
+    return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
+  }
 
-  // Counts for badges
   const activeQueueCount = jobs.filter((j) => !j.released && j.status !== 'Ready/Released').length;
   const readyCheckoutCount = jobs.filter((j) => !j.released && j.status === 'Ready/Released').length;
 
-  // Animated Tab Bar Navigation mapping & definitions
   const tabViewToIndex: Record<TabView, number> = {
     intake: 0,
     queue: 1,
     checkout: 2,
     workers: 3,
   };
-
   const indexToTabView: TabView[] = ['intake', 'queue', 'checkout', 'workers'];
   const currentTabIndex = tabViewToIndex[activeTab];
 
   const handleTabChange = (index: number) => {
     const selected = indexToTabView[index];
-    if (selected) {
-      setActiveTab(selected);
-    }
+    if (selected) setActiveTab(selected);
   };
 
-  const navTabItems: TabItem[] = [
+  const navTabItems: TabItem[] = role === 'owner' ? [
     {
       id: 'tab-intake-btn',
       label: 'Intake',
@@ -174,53 +245,48 @@ export default function App() {
       badge: workers.length,
       icon: <Users className="w-[1.25em] h-[1.25em] stroke-[2.4]" />,
     },
+  ] : [
+    {
+      id: 'tab-queue-btn',
+      label: 'My Queue',
+      color: '#10B981',
+      badge: activeQueueCount,
+      icon: <Wrench className="w-[1.25em] h-[1.25em] stroke-[2.4]" />,
+    }
   ];
 
   return (
     <div className="min-h-screen bg-stone-100 text-slate-800 flex flex-col items-center justify-between font-sans text-view-enhanced">
-      {/* Fixed/Sticky Top Navigation Header: Deep Forest Teal background (bg-[#0E2829]) with high-contrast white text */}
       <header className="w-full bg-[#0E2829] text-white border-b-2 border-emerald-500/30 sticky top-0 z-40 shadow-md">
         <div className="max-w-2xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            {/* MOTOLOGA Brand Emblem (Tap to inspect workshop branding & system info) */}
             <button
-              id="motologa-logo-btn"
-              type="button"
               onClick={() => setShowAboutModal(true)}
-              title="MOTOLOGA Workshop Operating System"
-              className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-[#142F30] border-l-4 border-[#34D399] flex items-center justify-center p-1.5 text-white shadow-sm shrink-0 hover:bg-[#1a3d3e] transition-all cursor-pointer active:scale-95"
+              className="w-10 h-10 rounded-xl bg-[#142F30] border-l-4 border-[#34D399] flex items-center justify-center p-1.5 text-white active:scale-95"
             >
               <MotologaLogo variant="icon" size="sm" accentColor="#34D399" />
             </button>
-            <div className="min-w-0">
-              <h1 className="text-base sm:text-xl font-black tracking-wider uppercase text-white font-mono truncate">
-                MOTOLOGA
-              </h1>
-            </div>
+            <h1 className="text-base sm:text-xl font-black tracking-wider uppercase text-white font-mono truncate">
+              MOTOLOGA
+            </h1>
           </div>
-
-          {/* Header Controls: Reset */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
-              onClick={handleResetDemo}
-              title="Reset workshop records"
-              className="min-h-[40px] px-2 sm:px-2.5 py-1 rounded-lg bg-[#142F30] hover:bg-stone-800 text-slate-300 text-xs font-bold border border-slate-700 flex items-center gap-1 active:scale-95 transition-all"
+              onClick={handleSignOut}
+              className="px-3 py-1 rounded-lg bg-rose-900 border border-rose-500 text-rose-300 text-xs font-bold active:scale-95"
             >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Reset</span>
+              Sign Out
             </button>
           </div>
         </div>
-
       </header>
 
-      {/* Main Content Area: App Canvas Warm Stone (bg-stone-100) */}
       <main className="w-full max-w-2xl flex-1 px-3 sm:px-4 pt-3 sm:pt-4 pb-28 sm:pb-32">
-        {activeTab === 'intake' && (
+        {activeTab === 'intake' && role === 'owner' && (
           <IntakeScreen
             onJobCreated={handleJobCreated}
             onNavigateToQueue={() => setActiveTab('queue')}
-            availableMechanics={Array.from(new Set([...workers.map((w) => w.name), 'Unassigned']))}
+            availableMechanics={workers.map((w) => w.name)}
           />
         )}
 
@@ -230,125 +296,52 @@ export default function App() {
             deferredRepairs={deferredRepairs}
             onUpdateRepairs={setDeferredRepairs}
             onUpdateJob={handleUpdateJob}
-            onNavigateToCheckout={handleNavigateToCheckout}
+            onNavigateToCheckout={(jobId) => {
+              if(jobId) setSelectedCheckoutJobId(jobId);
+              setActiveTab('checkout');
+            }}
           />
         )}
 
-        {activeTab === 'checkout' && (
+        {activeTab === 'checkout' && role === 'owner' && (
           <CheckoutScreen
             jobs={jobs}
             todayRevenue={todayRevenue}
             onUpdateJob={handleUpdateJob}
             onJobReleased={handleJobReleased}
-            onAddDeferredRepair={(newRepair) => {
-              setDeferredRepairs((prev) => [newRepair, ...prev.filter((r) => r.id !== newRepair.id)]);
-            }}
+            onAddDeferredRepair={(rep) => setDeferredRepairs(prev => [rep, ...prev])}
             selectedJobId={selectedCheckoutJobId}
           />
         )}
 
-        {activeTab === 'workers' && (
+        {activeTab === 'workers' && role === 'owner' && (
           <WorkersScreen
             workers={workers}
             onAddWorker={handleAddWorker}
             onDeleteWorker={handleDeleteWorker}
             onToggleStatus={handleToggleWorkerStatus}
-            onNavigateToQueue={(mechanicName) => {
-              setActiveTab('queue');
-            }}
+            onNavigateToQueue={() => setActiveTab('queue')}
           />
         )}
       </main>
 
-      {/* PRIMARY NAVIGATION:
-          Dynamic Floating Island with curved arch cutout indicator,
-          responsive floating orb badge, and active-only page name.
-      */}
-      <nav
-        id="bottom-tab-navigator"
-        aria-label="Garage Operations Navigation"
-        className="fixed bottom-3 sm:bottom-6 inset-x-0 mx-auto z-50 flex justify-center items-center px-3 sm:px-6 pointer-events-none transition-all duration-300"
-      >
-        <div className="w-full max-w-[310px] min-[375px]:max-w-[340px] min-[425px]:max-w-[380px] sm:max-w-[460px] md:max-w-[520px] lg:max-w-[560px] pointer-events-auto filter drop-shadow-[0_16px_32px_rgba(0,0,0,0.65)] transition-all duration-300 ease-out">
+      <nav className="fixed bottom-3 sm:bottom-6 inset-x-0 mx-auto z-50 flex justify-center items-center px-3 sm:px-6 pointer-events-none transition-all duration-300">
+        <div className="w-full max-w-[310px] sm:max-w-[460px] md:max-w-[520px] pointer-events-auto filter drop-shadow-[0_16px_32px_rgba(0,0,0,0.65)]">
           <AnimatedTabBar
             items={navTabItems}
-            activeIndex={currentTabIndex}
+            activeIndex={role === 'mechanic' ? 0 : currentTabIndex}
             onTabChange={handleTabChange}
             barColor="#0E2829"
           />
         </div>
       </nav>
-
-      {/* MOTOLOGA Brand & Workshop System Modal */}
+      
       {showAboutModal && (
-        <div
-          id="about-motologa-modal"
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-150"
-        >
-          <div className="w-full max-w-md bg-[#0E2829] text-white rounded-3xl overflow-hidden shadow-2xl border-2 border-[#34D399] flex flex-col">
-            {/* Modal Top Header */}
-            <div className="p-4 sm:p-5 flex items-center justify-between border-b border-emerald-500/30">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#34D399] animate-pulse"></span>
-                <span className="font-mono text-xs uppercase tracking-widest text-[#34D399] font-black">
-                  System Profile • Cameroon OS
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowAboutModal(false)}
-                className="w-9 h-9 rounded-xl bg-[#142F30] hover:bg-[#1f484a] text-slate-300 flex items-center justify-center cursor-pointer transition-colors active:scale-95 border border-emerald-500/20"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Body: Prominent Logo Display */}
-            <div className="p-6 text-center space-y-5">
-              <div className="bg-[#142F30] rounded-2xl p-6 border border-emerald-500/30 flex flex-col items-center justify-center shadow-inner relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-2 h-full bg-[#34D399]"></div>
-                <MotologaLogo
-                  variant="full"
-                  size="xl"
-                  className="text-white drop-shadow-md"
-                  accentColor="#34D399"
-                />
-                <span className="text-[10px] font-mono tracking-widest text-[#34D399] uppercase font-bold mt-2">
-                  Precision Workshop Engineering
-                </span>
-              </div>
-
-              <div className="space-y-2 text-left bg-[#091b1c] p-4 rounded-xl border border-emerald-950 text-xs">
-                <div className="flex justify-between py-1 border-b border-emerald-900/40">
-                  <span className="text-slate-400">Application:</span>
-                  <strong className="text-white font-mono">MOTOLOGA Auto OS v2.0</strong>
-                </div>
-                <div className="flex justify-between py-1 border-b border-emerald-900/40">
-                  <span className="text-slate-400">Registry Region:</span>
-                  <strong className="text-emerald-300 font-mono">Douala / Yaoundé (CMR)</strong>
-                </div>
-                <div className="flex justify-between py-1 border-b border-emerald-900/40">
-                  <span className="text-slate-400">Offline Status:</span>
-                  <span className="text-[#34D399] font-bold flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-[#34D399]"></span>
-                    Storage Persistent (Local)
-                  </span>
-                </div>
-                <div className="flex justify-between py-1">
-                  <span className="text-slate-400">Touch Architecture:</span>
-                  <strong className="text-amber-400 font-mono">Min 48px Garage Hand Standard</strong>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShowAboutModal(false)}
-                className="w-full min-h-[48px] rounded-xl bg-[#34D399] hover:bg-[#10B981] active:scale-98 text-[#0E2829] font-black text-sm uppercase tracking-wider shadow-md transition-all cursor-pointer"
-              >
-                Return to Workshop Board
-              </button>
-            </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-md bg-[#0E2829] text-white rounded-3xl overflow-hidden shadow-2xl border-2 flex flex-col p-6">
+            <h2 className="text-xl font-bold mb-4">MOTOLOGA System Info</h2>
+            <p className="text-emerald-300 text-sm">Mode: <span className="uppercase">{role}</span></p>
+            <button onClick={() => setShowAboutModal(false)} className="mt-6 bg-[#34D399] text-[#0E2829] p-3 rounded-lg font-bold">Close</button>
           </div>
         </div>
       )}

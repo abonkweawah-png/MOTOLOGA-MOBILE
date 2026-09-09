@@ -3,12 +3,10 @@ import { Wrench, Calendar, MessageCircle, CheckCircle2, Clock, Plus, X } from 'l
 import { DeferredRepair, DeferredStatus } from '../types';
 import {
   generateWhatsAppReminderUrl,
-  updateDeferredRepairStatus,
-  addDeferredRepair,
   COMPONENT_OPTIONS,
   TIMEFRAME_OPTIONS,
   sanitizeCameroonPhone,
-} from '../storage';
+} from '../types';
 
 interface RecallDashboardProps {
   repairs: DeferredRepair[];
@@ -51,8 +49,7 @@ export const RecallDashboard: React.FC<RecallDashboardProps> = ({
     // Open WhatsApp
     window.open(waUrl, '_blank', 'noopener,noreferrer');
 
-    // Mark as contacted
-    const updated = updateDeferredRepairStatus(repair.id, 'contacted');
+    const updated = repairs.map(r => r.id === repair.id ? { ...r, status: 'contacted' as DeferredStatus } : r);
     if (onUpdateRepairs) {
       onUpdateRepairs(updated);
     }
@@ -65,7 +62,7 @@ export const RecallDashboard: React.FC<RecallDashboardProps> = ({
 
   const handleToggleStatus = (repair: DeferredRepair) => {
     const nextStatus: DeferredStatus = repair.status === 'pending' ? 'contacted' : 'pending';
-    const updated = updateDeferredRepairStatus(repair.id, nextStatus);
+    const updated = repairs.map(r => r.id === repair.id ? { ...r, status: nextStatus } : r);
     if (onUpdateRepairs) {
       onUpdateRepairs(updated);
     }
@@ -75,12 +72,14 @@ export const RecallDashboard: React.FC<RecallDashboardProps> = ({
     e.preventDefault();
     if (!newPlate.trim() || !newPhone.trim()) return;
 
-    const created = addDeferredRepair({
+    const created: DeferredRepair = {
+      id: `def-${Date.now()}`,
+      status: 'pending' as DeferredStatus,
       vehiclePlate: newPlate.toUpperCase().trim(),
       customerPhone: sanitizeCameroonPhone(newPhone),
       componentToFix: newComponent,
       targetDateString: newTimeframe,
-    });
+    };
 
     if (onUpdateRepairs) {
       onUpdateRepairs([created, ...repairs]);
