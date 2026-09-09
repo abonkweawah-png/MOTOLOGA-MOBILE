@@ -1,0 +1,72 @@
+export type JobStatus = 'Diagnosis' | 'Awaiting Approval' | 'In Repair' | 'Ready/Released';
+
+export type PartSource = 'Garage Stock' | 'Customer-Supplied Part';
+
+export type DeferredTimeframe = 'Next Week' | 'In 2 Weeks' | 'End of Month' | 'Next Month' | 'In 3 Months';
+
+export type DeferredStatus = 'pending' | 'contacted';
+
+export interface DeferredRepair {
+  id: string;
+  vehiclePlate: string;
+  customerPhone: string;
+  componentToFix: string;
+  targetDateString: string; // e.g., "Next Week", "In 2 Weeks", "End of Month"
+  status: DeferredStatus;
+  createdAt?: number;
+  contactedAt?: number;
+  // Compatibility fields for existing job models
+  flagged?: boolean;
+  component?: string;
+  timeframe?: string;
+}
+
+export interface Job {
+  id: string;
+  licensePlate: string;
+  customerPhone: string;
+  vehicleModel: string;
+  mechanicAssigned: string;
+  status: JobStatus;
+  createdAt: number;
+  timeElapsedMinutes?: number;
+  dashboardPhotoUrl?: string;
+  exteriorPhotoUrl?: string;
+  oldPartPhotoUrl?: string;
+  newPartPhotoUrl?: string;
+  partSource: PartSource;
+  laborFeeFcfa: number;
+  deferredRepair?: DeferredRepair | { flagged: boolean; component: string; timeframe: string };
+  issueDescription?: string;
+  voiceNoteUrl?: string;
+  voiceNoteDurationSeconds?: number;
+  released: boolean;
+  releasedAt?: number;
+}
+
+export interface GarageStats {
+  todayRevenueFcfa: number;
+  vehiclesReadyCount: number;
+  needsAttentionCount: number;
+  totalIntakeToday: number;
+}
+
+export type WorkerStatus = 'active' | 'busy' | 'break';
+
+export interface WorkerProfile {
+  id: string;
+  name: string;
+  role: string;
+  specialty: string;
+  phone: string;
+  description: string;
+  image: string;
+  isVerified: boolean;
+  status: WorkerStatus;
+  completedJobs: number;
+  rating: number;
+  followers?: number;
+  following?: number;
+  isFollowing?: boolean;
+  createdAt: number;
+}

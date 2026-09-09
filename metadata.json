@@ -1,0 +1,6 @@
+{
+  "name": "MOTOLOGA",
+  "description": "High-contrast mobile operating system for auto mechanics in Cameroon with offline job queue, intake photo capture, and WhatsApp billing.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
