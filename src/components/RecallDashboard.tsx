@@ -73,7 +73,7 @@ export const RecallDashboard: React.FC<RecallDashboardProps> = ({
     if (!newPlate.trim() || !newPhone.trim()) return;
 
     const created: DeferredRepair = {
-      id: `def-${Date.now()}`,
+      id: '',
       status: 'pending' as DeferredStatus,
       vehiclePlate: newPlate.toUpperCase().trim(),
       customerPhone: sanitizeCameroonPhone(newPhone),

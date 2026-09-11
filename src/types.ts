@@ -69,6 +69,8 @@ export interface WorkerProfile {
   following?: number;
   isFollowing?: boolean;
   createdAt: number;
+  pinCode?: string;
+  colorBadge?: string;
 }
 
 export const COMPONENT_OPTIONS = [

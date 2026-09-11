@@ -61,9 +61,9 @@ export const fetchMechanicById = async (mechanicId: string): Promise<WorkerProfi
   return {
     id: data.id,
     name: data.name,
-    role: 'Mechanic',
-    specialty: '',
-    phone: '',
+    role: data.role || 'Apprentice',
+    specialty: data.specialty || '',
+    phone: data.phone || '',
     description: '',
     image: '',
     isVerified: true,
@@ -71,7 +71,43 @@ export const fetchMechanicById = async (mechanicId: string): Promise<WorkerProfi
     completedJobs: 0,
     rating: 5,
     createdAt: Date.now(),
+    pinCode: data.pin_code,
+    colorBadge: data.color_badge,
   };
+};
+
+export const fetchMechanics = async (garageIdArg: string) => {
+  const { data, error } = await supabase.from('mechanics').select('*').eq('garage_id', garageIdArg);
+  
+  if (error) {
+    console.error("fetchMechanics error", error);
+    return [];
+  }
+  return data || [];
+};
+
+export const createMechanic = async (garageId: string, name: string, pinCode: string, colorBadge: string, phone?: string, role?: string, specialty?: string) => {
+  const { data, error } = await supabase.from('mechanics').insert({
+    garage_id: garageId,
+    name,
+    pin_code: pinCode,
+    color_badge: colorBadge,
+    phone,
+    role,
+    specialty
+  }).select().single();
+  if (error || !data) throw new Error(error?.message || "Failed to create mechanic");
+  return data;
+};
+
+export const deleteMechanic = async (mechanicId: string) => {
+  const { data, error } = await supabase.from('mechanics').delete().eq('id', mechanicId).select().single();
+  if (error || !data) throw new Error(error?.message || "Failed to delete mechanic");
+};
+
+export const updateMechanicPin = async (mechanicId: string, pinCode: string) => {
+  const { data, error } = await supabase.from('mechanics').update({ pin_code: pinCode }).eq('id', mechanicId).select().single();
+  if (error || !data) throw new Error(error?.message || "Failed to update mechanic PIN");
 };
 
 export const fetchJobsForGarage = async (garageId: string) => {
@@ -124,9 +160,11 @@ export const createJob = async (job: Partial<Job>, garageId: string, mechanicId:
       status: dbStatus,
       labor_fee: job.laborFeeFcfa || 0,
     })
-    .select();
+    .select()
+    .single();
 
-  if (error) throw error;
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Insert failed: No data returned from Supabase.");
   return data;
 };
 
@@ -135,12 +173,14 @@ export const updateJobStatus = async (jobId: string, status: string, laborFee: n
   if (status === 'In Repair') dbStatus = 'active';
   if (status === 'Ready/Released') dbStatus = 'ready';
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('jobs')
     .update({ status: dbStatus, labor_fee: laborFee })
-    .eq('id', jobId);
+    .eq('id', jobId)
+    .select()
+    .single();
 
-  if (error) throw error;
+  if (error || !data) throw new Error(error?.message || "Failed to update job status");
 };
 
 export const fetchDeferredRepairs = async (jobIds: string[]): Promise<DeferredRepair[]> => {
@@ -166,12 +206,13 @@ export const fetchDeferredRepairs = async (jobIds: string[]): Promise<DeferredRe
 };
 
 export const createDeferredRepair = async (repair: DeferredRepair, jobId: string) => {
-  const { error } = await supabase.from('deferred_repairs').insert({
+  const { data, error } = await supabase.from('deferred_repairs').insert({
     job_id: jobId,
     component: repair.componentToFix,
     target_date: repair.targetDateString,
     status: repair.status,
-  });
+  }).select().single();
 
-  if (error) throw error;
+  if (error || !data) throw new Error(error?.message || "Failed to create deferred repair");
+  return data;
 };

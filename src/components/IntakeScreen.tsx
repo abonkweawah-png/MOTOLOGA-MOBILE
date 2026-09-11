@@ -6,7 +6,7 @@ import { MotologaLogo } from './MotologaLogo';
 import { VoiceRecorderField } from './VoiceRecorderField';
 
 interface IntakeScreenProps {
-  onJobCreated: (newJob: Job) => void;
+  onJobCreated: (newJob: Job) => Promise<void>;
   onNavigateToQueue: () => void;
   availableMechanics?: string[];
 }
@@ -42,7 +42,7 @@ export const IntakeScreen: React.FC<IntakeScreenProps> = ({
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const handleDispatch = (e: React.FormEvent) => {
+  const handleDispatch = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const trimmedPlate = licensePlate.trim().toUpperCase();
@@ -52,7 +52,7 @@ export const IntakeScreen: React.FC<IntakeScreenProps> = ({
     }
 
     const newJob: Job = {
-      id: `job-${Date.now().toString().slice(-5)}`,
+      id: '', // UUID is assigned by Supabase backend
       licensePlate: trimmedPlate,
       customerPhone: customerPhone.startsWith('+237') ? customerPhone : `+237 ${customerPhone.trim()}`,
       vehicleModel: vehicleModel.trim() || 'Unspecified Vehicle',
@@ -77,22 +77,26 @@ export const IntakeScreen: React.FC<IntakeScreenProps> = ({
       released: false,
     };
 
-    onJobCreated(newJob);
-    setToastMessage(`Vehicle ${trimmedPlate} logged & assigned to ${selectedMechanic}!`);
+    try {
+      await onJobCreated(newJob);
+      setToastMessage(`Vehicle ${trimmedPlate} logged & assigned to ${selectedMechanic}!`);
 
-    // Reset inputs for next car
-    setLicensePlate('');
-    setCustomerPhone('');
-    setVehicleModel('');
-    setDashboardPhoto('');
-    setExteriorPhoto('');
-    setIssueDescription('');
-    setVoiceNoteUrl('');
-    setVoiceNoteDuration(0);
+      // Reset inputs for next car
+      setLicensePlate('');
+      setCustomerPhone('');
+      setVehicleModel('');
+      setDashboardPhoto('');
+      setExteriorPhoto('');
+      setIssueDescription('');
+      setVoiceNoteUrl('');
+      setVoiceNoteDuration(0);
 
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 4000);
+      setTimeout(() => {
+        setToastMessage(null);
+      }, 4000);
+    } catch (err: any) {
+      alert(err.message || 'Job insertion failed from database error.');
+    }
   };
 
   return (

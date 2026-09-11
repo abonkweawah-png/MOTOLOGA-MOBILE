@@ -19,87 +19,46 @@ import {
   Upload,
   ChevronDown,
   ChevronUp,
-  Check
+  Check,
+  RefreshCw
 } from 'lucide-react';
 
 interface WorkersScreenProps {
   workers: WorkerProfile[];
-  onAddWorker: (newWorker: WorkerProfile) => void;
+  onAddWorker: (name: string, pinCode: string, colorBadge: string, phone?: string, role?: string, specialty?: string) => Promise<void>;
   onDeleteWorker: (workerId: string) => void;
+  onUpdatePin: (workerId: string, newPin: string) => void;
   onToggleStatus: (workerId: string, status: WorkerStatus) => void;
   onNavigateToQueue: (mechanicName: string) => void;
+  onForceLoad?: () => void;
 }
 
 const PRESET_AVATARS = [
-  {
-    label: 'Lead Mechanic (Overalls)',
-    url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Marcus&clothing=overall&clothingColor=262e33&accessories=round&backgroundColor=c0aede',
-  },
-  {
-    label: 'Diagnostic Tech (Glasses)',
-    url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&clothing=collarAndSweater&clothingColor=3c4f5e&accessories=prescription02&accessoriesProbability=100&backgroundColor=b6e3f4',
-  },
-  {
-    label: 'Master Electrician',
-    url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah&clothing=overall&accessories=round&backgroundColor=d1d4f9',
-  },
-  {
-    label: 'Engine Rebuilder',
-    url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Jacks&clothing=overall&facialHair=beardLight&backgroundColor=ffdfbf',
-  },
-  {
-    label: 'Cyber Wrench Bot',
-    url: 'https://api.dicebear.com/7.x/bottts/svg?seed=WrenchBot&backgroundColor=b6e3f4',
-  },
-  {
-    label: 'Workshop Chief',
-    url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Robert&clothing=blazerAndShirt&facialHair=beardMajestic&backgroundColor=d1fae5',
-  },
-  {
-    label: 'Tuning Engineer',
-    url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Amara&clothing=hoodie&backgroundColor=fed7aa',
-  },
-  {
-    label: 'Gearbox Pro',
-    url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Christian&clothing=overall&top=hat&backgroundColor=e2e8f0',
-  },
-  {
-    label: 'Pitstop Mechanic',
-    url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Aiden&clothing=graphicShirt&facialHair=moustacheFancy&backgroundColor=fef08a',
-  },
-  {
-    label: 'ECU Specialist',
-    url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Elena&clothing=collarAndSweater&accessories=prescription01&backgroundColor=e9d5ff',
-  },
-  {
-    label: 'Heavy Duty Tech',
-    url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Tariq&clothing=overall&facialHair=beardMedium&backgroundColor=bae6fd',
-  },
-  {
-    label: 'Hydraulics Expert',
-    url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Maya&clothing=shirtCrewNeck&backgroundColor=fbcfe8',
-  },
-  {
-    label: 'Turbo Robo-Tech',
-    url: 'https://api.dicebear.com/7.x/bottts/svg?seed=TurboMech&backgroundColor=c7d2fe',
-  },
-];
-
-const PRESET_ROLES = [
-  'Lead Master Mechanic',
-  'Transmission Specialist',
-  'Auto Electrician & ECU',
-  'Brakes & Suspension Tech',
-  'Engine Rebuild Specialist',
-  'Apprentice Technician',
+  { id: '1', name: 'Zippy', hex: 'https://api.dicebear.com/7.x/bottts/svg?seed=Zippy' },
+  { id: '2', name: 'Felix', hex: 'https://api.dicebear.com/7.x/bottts/svg?seed=Felix' },
+  { id: '3', name: 'Blade', hex: 'https://api.dicebear.com/7.x/bottts/svg?seed=Blade' },
+  { id: '4', name: 'Gizmo', hex: 'https://api.dicebear.com/7.x/bottts/svg?seed=Gizmo' },
+  { id: '5', name: 'Jasper', hex: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Jasper' },
+  { id: '6', name: 'Spike', hex: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Spike' },
+  { id: '7', name: 'Nix', hex: 'https://api.dicebear.com/7.x/bottts/svg?seed=Nix' },
+  { id: '8', name: 'Bolt', hex: 'https://api.dicebear.com/7.x/bottts/svg?seed=Bolt' },
+  { id: '9', name: 'Dash', hex: 'https://api.dicebear.com/7.x/bottts/svg?seed=Dash' },
+  { id: '10', name: 'Flint', hex: 'https://api.dicebear.com/7.x/bottts/svg?seed=Flint' },
+  { id: '11', name: 'Ace', hex: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Ace' },
+  { id: '12', name: 'Rex', hex: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Rex' },
+  { id: '13', name: 'Burt', hex: 'https://api.dicebear.com/7.x/bottts/svg?seed=Burt' },
+  { id: '14', name: 'Max', hex: 'https://api.dicebear.com/7.x/bottts/svg?seed=Max' },
+  { id: '15', name: 'Chip', hex: 'https://api.dicebear.com/7.x/bottts/svg?seed=Chip' }
 ];
 
 export const WorkersScreen: React.FC<WorkersScreenProps> = ({
   workers,
   onAddWorker,
   onDeleteWorker,
+  onUpdatePin,
   onToggleStatus,
   onNavigateToQueue,
+  onForceLoad,
 }) => {
   const [showCreateForm, setShowCreateForm] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -108,93 +67,52 @@ export const WorkersScreen: React.FC<WorkersScreenProps> = ({
 
   // Form State
   const [name, setName] = useState<string>('');
-  const [role, setRole] = useState<string>(PRESET_ROLES[0]);
-  const [specialty, setSpecialty] = useState<string>('');
+  const [pinCode, setPinCode] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
-  const [description, setDescription] = useState<string>('');
-  const [image, setImage] = useState<string>(PRESET_AVATARS[0].url);
-  const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(null);
-  const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState<boolean>(false);
-  const [isVerified, setIsVerified] = useState<boolean>(true);
-  const [status, setStatus] = useState<WorkerStatus>('active');
-  const [initialRepairs, setInitialRepairs] = useState<string>('');
+  const [roleInput, setRoleInput] = useState<string>('Apprentice');
+  const [specialty, setSpecialty] = useState<string>('');
+  const [colorBadge, setColorBadge] = useState<string>(PRESET_AVATARS[0].hex);
   const [formError, setFormError] = useState<string>('');
   const [createdSuccessToast, setCreatedSuccessToast] = useState<string | null>(null);
+  const [showAllAvatars, setShowAllAvatars] = useState<boolean>(false);
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      setFormError('Please select a valid image file (PNG, JPG, WEBP, etc.)');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setUploadedPhoto(reader.result);
-        setImage(reader.result);
-        setFormError('');
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
       setFormError('Please enter the worker’s full name.');
       return;
     }
+    if (!/^\d{4}$/.test(pinCode)) {
+      setFormError('PIN must be exactly 4 digits.');
+      return;
+    }
 
-    const finalImage = uploadedPhoto || image;
+    try {
+      await onAddWorker(name.trim(), pinCode, colorBadge, phone, roleInput, specialty);
+      
+      setCreatedSuccessToast(`Worker profile for "${name.trim()}" created successfully!`);
 
-    const newWorker: WorkerProfile = {
-      id: `worker-${Date.now()}`,
-      name: name.trim(),
-      role: role.trim() || 'Technician',
-      specialty: specialty.trim() || 'General Automotive Repairs',
-      phone: phone.trim() || '+237 600 00 00 00',
-      description:
-        description.trim() ||
-        `${role} dedicated to high-precision vehicle diagnostics and customer satisfaction.`,
-      image: finalImage,
-      isVerified,
-      status,
-      completedJobs: Number(initialRepairs) || 0,
-      rating: 5.0,
-      followers: 24,
-      following: 5,
-      isFollowing: false,
-      createdAt: Date.now(),
-    };
+      // Reset Form
+      setName('');
+      setPinCode('');
+      setPhone('');
+      setRoleInput('Apprentice');
+      setSpecialty('');
+      setColorBadge(PRESET_AVATARS[0].hex);
+      setShowCreateForm(false);
+      setShowAllAvatars(false);
+      setFormError('');
 
-    onAddWorker(newWorker);
-    setNewlyCreatedWorkerId(newWorker.id);
-    setCreatedSuccessToast(`Worker profile for "${newWorker.name}" created successfully!`);
-
-    // Reset Form
-    setName('');
-    setSpecialty('');
-    setPhone('');
-    setDescription('');
-    setInitialRepairs('');
-    setUploadedPhoto(null);
-    setImage(PRESET_AVATARS[0].url);
-    setShowCreateForm(false);
-    setFormError('');
-
-    setTimeout(() => {
-      setCreatedSuccessToast(null);
-    }, 4500);
+      setTimeout(() => {
+        setCreatedSuccessToast(null);
+      }, 4500);
+    } catch (err: any) {
+      alert(err.message || 'Worker insertion failed from database error.');
+    }
   };
 
   const filteredWorkers = workers.filter((w) => {
-    const matchesSearch =
-      w.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      w.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      w.specialty.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = w.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || w.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -223,27 +141,39 @@ export const WorkersScreen: React.FC<WorkersScreenProps> = ({
             </div>
           </div>
 
-          <button
-            type="button"
-            id="register-new-worker-btn"
-            onClick={() => {
-              setShowCreateForm((prev) => !prev);
-              setFormError('');
-            }}
-            className="px-4 py-2.5 rounded-xl bg-[#0E2829] hover:bg-[#142F30] active:scale-95 text-[#34D399] font-bold text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 border border-emerald-500/40 shadow-sm cursor-pointer transition-all shrink-0"
-          >
-            {showCreateForm ? (
-              <>
-                <X className="w-4 h-4" />
-                <span>Close Form</span>
-              </>
-            ) : (
-              <>
-                <UserPlus className="w-4 h-4" />
-                <span>Sign In New Worker</span>
-              </>
+          <div className="flex items-center gap-2">
+            {onForceLoad && (
+               <button
+                 type="button"
+                 onClick={onForceLoad}
+                 className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 border border-rose-500 shadow-sm cursor-pointer transition-all shrink-0"
+               >
+                 <RefreshCw className="w-4 h-4" />
+                 <span>FORCE LOAD MECHANICS</span>
+               </button>
             )}
-          </button>
+            <button
+              type="button"
+              id="register-new-worker-btn"
+              onClick={() => {
+                setShowCreateForm((prev) => !prev);
+                setFormError('');
+              }}
+              className="px-4 py-2.5 rounded-xl bg-[#0E2829] hover:bg-[#142F30] active:scale-95 text-[#34D399] font-bold text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 border border-emerald-500/40 shadow-sm cursor-pointer transition-all shrink-0"
+            >
+              {showCreateForm ? (
+                <>
+                  <X className="w-4 h-4" />
+                  <span>Close Form</span>
+                </>
+              ) : (
+                <>
+                  <UserPlus className="w-4 h-4" />
+                  <span>Sign In New Worker</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Quick Workshop Roster Counters */}
@@ -315,14 +245,10 @@ export const WorkersScreen: React.FC<WorkersScreenProps> = ({
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            {/* Full Name */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label
-                htmlFor="worker-name-input"
-                className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1"
-              >
-                Worker Full Name *
+              <label htmlFor="worker-name-input" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                Worker Name *
               </label>
               <input
                 id="worker-name-input"
@@ -330,304 +256,94 @@ export const WorkersScreen: React.FC<WorkersScreenProps> = ({
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Ibrahim Souley"
+                placeholder="e.g. Jean"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white font-medium text-slate-900 text-sm focus:border-emerald-600 focus:outline-none transition-all"
               />
             </div>
-
-            {/* Role Presets */}
+            
             <div>
-              <label
-                htmlFor="worker-role-select"
-                className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1"
-              >
-                Workshop Role / Position
-              </label>
-              <select
-                id="worker-role-select"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white font-medium text-slate-900 text-sm focus:border-emerald-600 focus:outline-none transition-all"
-              >
-                {PRESET_ROLES.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Specialty */}
-            <div>
-              <label
-                htmlFor="worker-specialty-input"
-                className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1"
-              >
-                Specialty / Skills
+              <label htmlFor="worker-pin-input" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                4-Digit PIN Code *
               </label>
               <input
-                id="worker-specialty-input"
+                id="worker-pin-input"
                 type="text"
-                value={specialty}
-                onChange={(e) => setSpecialty(e.target.value)}
-                placeholder="e.g. Toyota D-4D, Common Rail, ECU Remap"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white font-medium text-slate-900 text-sm focus:border-emerald-600 focus:outline-none transition-all"
+                inputMode="numeric"
+                pattern="\d{4}"
+                required
+                maxLength={4}
+                value={pinCode}
+                onChange={(e) => setPinCode(e.target.value.replace(/\D/g, ''))}
+                placeholder="e.g. 1234"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white font-medium text-slate-900 text-sm focus:border-emerald-600 focus:outline-none transition-all tracking-[0.5em] font-mono text-center"
               />
             </div>
 
-            {/* Phone Number */}
             <div>
-              <label
-                htmlFor="worker-phone-input"
-                className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1"
-              >
-                Phone / WhatsApp Number
-              </label>
+              <label htmlFor="worker-phone" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Phone Number</label>
               <input
-                id="worker-phone-input"
+                id="worker-phone"
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="+237 6XX XX XX XX"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white font-medium text-slate-900 text-sm focus:border-emerald-600 focus:outline-none transition-all"
+                placeholder="e.g. 670000000"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-sm focus:border-emerald-600 focus:outline-none"
               />
             </div>
-          </div>
 
-          {/* Bio / Experience Description */}
-          <div>
-            <label
-              htmlFor="worker-bio-input"
-              className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1"
-            >
-              Experience Description / Bio
-            </label>
-            <textarea
-              id="worker-bio-input"
-              rows={2}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="e.g. 7 years experience in Japanese 4x4s and diesel truck fleet repairs in Douala."
-              className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white font-medium text-slate-900 text-sm focus:border-emerald-600 focus:outline-none transition-all"
-            />
-          </div>
-
-          {/* Profile Picture Selection */}
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
-              Choose Cartoon Avatar or Upload Custom Photo
-            </label>
-
-            {/* Display only 2 avatars in the span, followed by dropdown and upload buttons */}
-            {(() => {
-              const selectedPresetIndex = PRESET_AVATARS.findIndex((p) => p.url === image);
-              const displayedTwoAvatars =
-                selectedPresetIndex > 1
-                  ? [PRESET_AVATARS[selectedPresetIndex], PRESET_AVATARS[0]]
-                  : [PRESET_AVATARS[0], PRESET_AVATARS[1]];
-
-              return (
-                <div className="relative">
-                  <div className="flex flex-wrap items-center gap-2 mb-2">
-                    {/* Display only two avatars in the span */}
-                    {displayedTwoAvatars.map((preset, idx) => {
-                      const isSelected = !uploadedPhoto && image === preset.url;
-                      return (
-                        <button
-                          key={idx}
-                          type="button"
-                          id={`preset-avatar-span-${idx}`}
-                          onClick={() => {
-                            setImage(preset.url);
-                            setUploadedPhoto(null);
-                          }}
-                          className={`p-1.5 px-2.5 rounded-xl border text-left inline-flex items-center gap-2 cursor-pointer transition-all shadow-xs ${
-                            isSelected
-                              ? 'bg-emerald-50 border-emerald-500 ring-2 ring-emerald-400/80 shadow-xs'
-                              : 'bg-stone-50 border-slate-200 hover:bg-stone-100'
-                          }`}
-                        >
-                          <div className="w-8 h-8 rounded-lg overflow-hidden bg-slate-100 shrink-0 border border-slate-300">
-                            <img
-                              src={preset.url}
-                              alt={preset.label}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                          <span className="text-[11px] font-bold text-slate-800 line-clamp-1 max-w-[130px]">
-                            {preset.label}
-                          </span>
-                          {isSelected && (
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                          )}
-                        </button>
-                      );
-                    })}
-
-                    {/* Dropdown toggle button beside the 2 avatars */}
-                    <button
-                      id="avatar-dropdown-toggle-btn"
-                      type="button"
-                      onClick={() => setIsAvatarDropdownOpen((prev) => !prev)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold cursor-pointer transition-all shadow-xs shrink-0 ${
-                        isAvatarDropdownOpen
-                          ? 'bg-emerald-100/80 border-emerald-500 text-emerald-900 ring-2 ring-emerald-400/50'
-                          : 'bg-stone-50 border-slate-300 hover:bg-stone-100 text-slate-700'
-                      }`}
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>More Avatars ({PRESET_AVATARS.length})</span>
-                      {isAvatarDropdownOpen ? (
-                        <ChevronUp className="w-3.5 h-3.5 text-slate-500" />
-                      ) : (
-                        <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
-                      )}
-                    </button>
-
-                    {/* Compact File Upload Button */}
-                    <input
-                      id="worker-photo-upload"
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handlePhotoUpload}
-                    />
-                    <label
-                      htmlFor="worker-photo-upload"
-                      id="worker-photo-upload-btn"
-                      className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-300 bg-stone-50 hover:bg-stone-100 active:scale-95 text-slate-700 font-bold text-xs cursor-pointer transition-all shadow-xs shrink-0"
-                    >
-                      <Upload className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>{uploadedPhoto ? 'Replace Upload' : 'Upload Own Photo'}</span>
-                    </label>
-
-                    {uploadedPhoto && (
-                      <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-emerald-50 border border-emerald-300 rounded-xl text-xs">
-                        <img
-                          src={uploadedPhoto}
-                          alt="Uploaded thumbnail"
-                          className="w-6 h-6 rounded-md object-cover border border-emerald-400"
-                        />
-                        <span className="font-bold text-emerald-900 text-[11px]">Custom Photo Active</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setUploadedPhoto(null);
-                            setImage(PRESET_AVATARS[0].url);
-                          }}
-                          className="text-slate-400 hover:text-rose-600 p-0.5 ml-1 cursor-pointer"
-                          title="Remove custom photo"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Dropdown Menu showing all avatars */}
-                  {isAvatarDropdownOpen && (
-                    <div
-                      id="avatar-dropdown-panel"
-                      className="mt-2 w-full max-w-xl bg-white rounded-2xl border border-slate-200 shadow-xl p-3.5 z-20 animate-in fade-in zoom-in-95 duration-150 mb-3"
-                    >
-                      <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
-                        <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                          <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                          Choose from All {PRESET_AVATARS.length} Cartoon Avatars
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setIsAvatarDropdownOpen(false)}
-                          className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-56 overflow-y-auto pr-1">
-                        {PRESET_AVATARS.map((preset, idx) => {
-                          const isSelected = !uploadedPhoto && image === preset.url;
-                          return (
-                            <button
-                              key={idx}
-                              type="button"
-                              onClick={() => {
-                                setImage(preset.url);
-                                setUploadedPhoto(null);
-                                setIsAvatarDropdownOpen(false);
-                              }}
-                              className={`p-2 rounded-xl border text-left flex items-center gap-2 cursor-pointer transition-all ${
-                                isSelected
-                                  ? 'bg-emerald-50 border-emerald-500 ring-2 ring-emerald-400/80 shadow-xs'
-                                  : 'bg-stone-50 border-slate-200 hover:bg-stone-100'
-                              }`}
-                            >
-                              <div className="w-8 h-8 rounded-lg overflow-hidden bg-slate-100 shrink-0 border border-slate-300">
-                                <img
-                                  src={preset.url}
-                                  alt={preset.label}
-                                  className="w-full h-full object-cover"
-                                  loading="lazy"
-                                />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-[11px] font-bold text-slate-800 truncate">
-                                  {preset.label}
-                                </p>
-                                {isSelected && (
-                                  <span className="text-[10px] font-semibold text-emerald-600 flex items-center gap-0.5">
-                                    <Check className="w-3 h-3" /> Picked
-                                  </span>
-                                )}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-          </div>
-
-          {/* Status & Verification Checkbox */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
             <div>
-              <label
-                htmlFor="worker-initial-status-select"
-                className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1"
-              >
-                Initial Shift Status
-              </label>
+              <label htmlFor="worker-specialty" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Brand Specialty</label>
+              <input
+                id="worker-specialty"
+                type="text"
+                value={specialty}
+                onChange={(e) => setSpecialty(e.target.value)}
+                placeholder="e.g. Toyota, Mercedes"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-sm focus:border-emerald-600 focus:outline-none"
+              />
+            </div>
+            
+            <div className="sm:col-span-2">
+              <label htmlFor="worker-status-select" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Professional Status *</label>
               <select
-                id="worker-initial-status-select"
-                value={status}
-                onChange={(e) => setStatus(e.target.value as WorkerStatus)}
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white font-medium text-slate-900 text-sm focus:border-emerald-600 focus:outline-none"
+                id="worker-status-select"
+                value={roleInput}
+                onChange={(e) => setRoleInput(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-bold focus:border-emerald-600 focus:outline-none cursor-pointer"
               >
-                <option value="active">Active (Available for Intake)</option>
-                <option value="busy">Busy (Currently on a Job)</option>
-                <option value="break">On Break / Off Shift</option>
+                <option value="Apprentice">Apprentice (Learning & Execution)</option>
+                <option value="Expert">Expert (Lead Diagnostician)</option>
               </select>
             </div>
+          </div>
 
-            <div>
-              <label
-                htmlFor="worker-repairs-count"
-                className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1"
-              >
-                Previous Completed Repairs
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                Select Character Avatar *
               </label>
-              <input
-                id="worker-repairs-count"
-                type="number"
-                min={0}
-                value={initialRepairs}
-                onChange={(e) => setInitialRepairs(e.target.value)}
-                placeholder="e.g. 0"
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white font-medium text-slate-900 text-sm focus:border-emerald-600 focus:outline-none placeholder:text-slate-400"
-              />
+              <button
+                type="button"
+                onClick={() => setShowAllAvatars(!showAllAvatars)}
+                className="text-emerald-600 text-[10px] font-black uppercase tracking-wider hover:underline"
+              >
+                {showAllAvatars ? 'Show Less' : 'Show All 15 Avatars'}
+              </button>
+            </div>
+            <div className={`transition-all duration-300 ${!showAllAvatars ? 'max-h-16 overflow-hidden' : 'max-h-64 overflow-y-auto'}`}>
+              <div className="flex flex-wrap gap-2.5 p-1">
+                {(showAllAvatars ? PRESET_AVATARS : PRESET_AVATARS.slice(0, 5)).map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setColorBadge(c.hex)}
+                    className={`w-14 h-14 rounded-2xl border-[3px] transition-transform active:scale-95 flex items-center justify-center shadow-sm overflow-hidden bg-slate-100 ${colorBadge === c.hex ? 'ring-2 ring-emerald-500 scale-105 border-emerald-500' : 'border-slate-300 hover:border-slate-400'}`}
+                    title={c.name}
+                  >
+                    <img src={c.hex} alt={c.name} className="w-10 h-10 object-contain drop-shadow-sm" />
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -719,7 +435,7 @@ export const WorkersScreen: React.FC<WorkersScreenProps> = ({
                 <div key={worker.id} className="relative w-full flex flex-col items-center">
                   {/* Subtle highlight if newly created */}
                   {isNewlyCreated && (
-                    <div className="mb-2 px-3 py-1 bg-emerald-100 border border-emerald-400 text-emerald-800 text-[11px] font-black rounded-full uppercase tracking-wider flex items-center gap-1.5 shadow-xs animate-bounce">
+                    <div className="mb-4 px-3 py-1 bg-emerald-100 border border-emerald-400 text-emerald-800 text-[11px] font-black rounded-full uppercase tracking-wider flex items-center gap-1.5 shadow-xs animate-bounce z-10 relative">
                       <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
                       <span>Newly Created Profile</span>
                     </div>
@@ -728,69 +444,70 @@ export const WorkersScreen: React.FC<WorkersScreenProps> = ({
                   {/* ProfileCard component incorporating user's design style */}
                   <ProfileCard
                     name={worker.name}
-                    description={worker.description}
-                    image={worker.image}
+                    description={worker.pinCode ? `Authorized Foreman Account` : `No PIN setup for this worker yet.`}
+                    image={worker.colorBadge || PRESET_AVATARS[0].hex}
                     isVerified={worker.isVerified}
                     role={worker.role}
                     specialty={worker.specialty}
                     phone={worker.phone}
-                    status={worker.status}
-                    completedJobs={worker.completedJobs}
-                    rating={worker.rating}
-                    followers={worker.followers || 45}
-                    following={worker.following || 10}
-                    actionLabel={`Assign to Queue →`}
-                    onAction={() => onNavigateToQueue(worker.name)}
-                    className="hover:border-[#34D399] transition-all"
+                    followers={worker.completedJobs}
+                    following={worker.rating}
+                    isFollowing={!!worker.pinCode}
+                    onFollow={() => {
+                      const newPin = window.prompt(`Enter new 4-digit PIN for ${worker.name}:`, worker.pinCode || '');
+                      if (newPin && /^\d{4}$/.test(newPin)) {
+                        onUpdatePin(worker.id, newPin);
+                        alert(`PIN for ${worker.name} successfully updated.`);
+                      } else if (newPin) {
+                        alert('Invalid PIN. Must be exactly 4 digits.');
+                      }
+                    }}
                   />
 
                   {/* Owner Controls Bar directly underneath the card */}
-                  <div className="w-full max-w-xs sm:w-80 mt-2.5 bg-white p-2.5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1">
-                      <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
-                        Shift:
-                      </span>
+                  <div className="w-80 mt-3 pt-3 flex flex-col gap-2 rounded-xl border border-stone-200 bg-stone-50 p-2 shadow-inner">
+                    <div className="flex items-center justify-between w-full">
                       <select
                         aria-label={`Status for ${worker.name}`}
                         value={worker.status}
                         onChange={(e) =>
                           onToggleStatus(worker.id, e.target.value as WorkerStatus)
                         }
-                        className="text-[11px] font-bold bg-stone-100 border border-slate-300 rounded-lg px-2 py-1 text-slate-800 focus:outline-none"
+                        className="text-xs font-bold bg-white border border-stone-300 rounded-lg px-2 py-1.5 text-slate-800 focus:outline-none flex-1 mr-2"
                       >
-                        <option value="active">Active</option>
-                        <option value="busy">Busy</option>
-                        <option value="break">On Break</option>
+                        <option value="active">Available (Active Shift)</option>
+                        <option value="busy">Busy (Currently on task)</option>
+                        <option value="break">On Break / Off Shift</option>
                       </select>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
+                      
                       {worker.phone && (
                         <a
                           href={`tel:${worker.phone}`}
                           title={`Call ${worker.name}`}
-                          className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200"
+                          className="p-1.5 px-3 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200"
                         >
                           <Phone className="w-3.5 h-3.5" />
                         </a>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (
-                            window.confirm(
-                              `Are you sure you want to remove ${worker.name} from workshop staff?`
-                            )
-                          ) {
-                            onDeleteWorker(worker.id);
-                          }
-                        }}
-                        title="Remove Worker"
-                        className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
                     </div>
+                    
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            `Are you sure you want to remove ${worker.name} from workshop staff?`
+                          )
+                        ) {
+                          onDeleteWorker(worker.id);
+                        }
+                      }}
+                      title="Remove Worker"
+                      className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[10px] uppercase tracking-wider border border-rose-200 transition-colors w-full flex items-center justify-center gap-1"
+                    >
+                      <Trash2 className="w-3 h-3" /> Remove Technician
+                    </button>
+                    
                   </div>
                 </div>
               );

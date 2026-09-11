@@ -26,7 +26,7 @@ interface CheckoutScreenProps {
   todayRevenue: number;
   onUpdateJob: (updatedJob: Job) => void;
   onJobReleased: (job: Job, finalFee: number) => void;
-  onAddDeferredRepair?: (repair: DeferredRepair) => void;
+  onAddDeferredRepair?: (repair: DeferredRepair, jobId: string) => void;
   selectedJobId?: string | null;
 }
 
@@ -140,8 +140,8 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
 
     // If deferred repair is flagged, record it into MOTOLOGA's follow-up system
     if (flagDeferred) {
-      const newFollowUp = {
-        id: `def-${Date.now()}`,
+      const newFollowUp: DeferredRepair = {
+        id: '', // Handled by Supabase DB
         status: 'pending' as const,
         vehiclePlate: currentJob.licensePlate,
         customerPhone: currentJob.customerPhone,
@@ -149,7 +149,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
         targetDateString: deferredTimeframe,
       };
       if (onAddDeferredRepair) {
-        onAddDeferredRepair(newFollowUp);
+        onAddDeferredRepair(newFollowUp, updatedJob.id);
       }
     }
 

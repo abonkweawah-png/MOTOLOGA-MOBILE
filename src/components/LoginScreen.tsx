@@ -10,16 +10,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   const [mode, setMode] = useState<'select' | 'owner' | 'mechanic'>('select');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [mechanics, setMechanics] = useState<{ id: string; name: string }[]>([]);
+  const [mechanics, setMechanics] = useState<{ id: string; name: string; color_badge?: string }[]>([]);
   const [isSignup, setIsSignup] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (mode === 'mechanic') {
-      supabase.from('mechanics').select('id, name').then(({ data }) => {
-        if (data) setMechanics(data);
-      });
+      setError('Owner session required to establish secure mechanic context on this device. Please login as Owner first.');
     }
   }, [mode]);
 
