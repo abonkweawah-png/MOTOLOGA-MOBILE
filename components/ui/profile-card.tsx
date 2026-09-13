@@ -64,7 +64,7 @@ export function ProfileCard({
       y: -4,
       filter: "blur(0px)",
       transition: { 
-        type: "spring", 
+        type: "spring" as const, 
         stiffness: 400, 
         damping: 28,
         mass: 0.6,
@@ -88,7 +88,7 @@ export function ProfileCard({
       y: 0,
       filter: "blur(0px)",
       transition: {
-        type: "spring",
+        type: "spring" as const,
         stiffness: 400,
         damping: 28,
         mass: 0.6,
@@ -111,7 +111,7 @@ export function ProfileCard({
       scale: 1,
       filter: "blur(0px)",
       transition: {
-        type: "spring",
+        type: "spring" as const,
         stiffness: 400,
         damping: 25,
         mass: 0.5,
@@ -128,7 +128,7 @@ export function ProfileCard({
       opacity: 1, 
       scale: 1,
       transition: {
-        type: "spring",
+        type: "spring" as const,
         damping: 8,
         stiffness: 200,
         mass: 0.8,
@@ -155,7 +155,7 @@ export function ProfileCard({
         alt={name}
         className="absolute inset-0 w-full h-full object-cover"
         variants={imageVariants}
-        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        transition={{ type: "spring" as const, stiffness: 300, damping: 30 }}
         onError={(e) => {
           // Fallback image if custom image fails to load
           (e.currentTarget as HTMLImageElement).src =
@@ -239,7 +239,7 @@ export function ProfileCard({
               whileHover={{ 
                 scale: 1.15, 
                 rotate: 8,
-                transition: { type: "spring", stiffness: 400, damping: 20 }
+                transition: { type: "spring" as const, stiffness: 400, damping: 20 }
               }}
             >
               <Check className="w-3 h-3 stroke-[3]" />
@@ -312,7 +312,7 @@ export function ProfileCard({
           onClick={onAction || onFollow}
           whileHover={{ 
             scale: 1.02,
-            transition: { type: "spring", stiffness: 400, damping: 25 }
+            transition: { type: "spring" as const, stiffness: 400, damping: 25 }
           }}
           whileTap={{ scale: 0.98 }}
           className={cn(

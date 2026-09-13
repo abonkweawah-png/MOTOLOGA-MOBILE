@@ -7,6 +7,8 @@ import { WorkersScreen } from './components/WorkersScreen';
 import { MotologaLogo } from './components/MotologaLogo';
 import { AnimatedTabBar, TabItem } from './components/ui/animated-tab-bar';
 import { LoginScreen } from './components/LoginScreen';
+import { RoleRouter } from './components/RoleRouter';
+import { JoinScreen } from './screens/JoinScreen';
 import { supabase } from './lib/supabase';
 import { fetchMechanics, fetchJobsForGarage, fetchJobsForMechanic, createJob, uploadMedia, updateJobStatus, createMechanic, deleteMechanic, updateMechanicPin, createDeferredRepair } from './lib/api';
 import {
@@ -29,9 +31,17 @@ type TabView = 'intake' | 'queue' | 'checkout' | 'workers';
 
 export default function App() {
   const [isInitializing, setIsInitializing] = useState<boolean>(true);
+  const [session, setSession] = useState<any>(null);
   const [role, setRole] = useState<'owner' | 'mechanic' | null>(null);
   const [mechanicId, setMechanicId] = useState<string | null>(null);
   const [garageId, setGarageId] = useState<string | null>(null);
+  const [inviteGarageId, setInviteGarageId] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('invite');
+    }
+    return null;
+  });
   
   const [activeTab, setActiveTab] = useState<TabView>('intake');
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -45,7 +55,7 @@ export default function App() {
     let isMounted = true;
 
     const initSession = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
+      const { data: { session: currentSession }, error } = await supabase.auth.getSession();
       
       if (error) {
         console.error(error);
@@ -53,22 +63,30 @@ export default function App() {
         return;
       }
       
-      if (session) {
-        if (isMounted) setRole(prev => prev === 'mechanic' ? 'mechanic' : 'owner');
+      if (currentSession) {
+        if (isMounted) {
+          setSession(currentSession);
+          setRole(prev => prev === 'mechanic' ? 'mechanic' : 'owner');
+        }
         try {
-          const { data } = await supabase.from('garages').select('id').eq('owner_id', session.user.id).limit(1).maybeSingle();
+          const { data } = await supabase.from('garages').select('id').eq('owner_id', currentSession.user.id).limit(1).maybeSingle();
           if (data && isMounted) {
             setGarageId(data.id);
           } else if (!data && isMounted) {
-            console.error('No garage found for owner.');
-            setIsInitializing(false);
+            // Check if user is a member of any garage
+            const { data: memberData } = await supabase.from('garage_members').select('garage_id').eq('user_id', currentSession.user.id).limit(1).maybeSingle();
+            if (memberData) {
+              setGarageId(memberData.garage_id);
+            }
           }
         } catch (e) {
           console.error(e);
+        } finally {
           if (isMounted) setIsInitializing(false);
         }
       } else {
         if (isMounted) {
+          setSession(null);
           setRole(null);
           setIsInitializing(false);
         }
@@ -77,14 +95,14 @@ export default function App() {
 
     initSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
       if (!isMounted) return;
-      if (session) {
-        // If we switch to an owner session, set role and query garage id. 
+      setSession(newSession);
+      if (newSession) {
         if (role !== 'mechanic') {
           setRole('owner');
         }
-        supabase.from('garages').select('id').eq('owner_id', session.user.id).limit(1).maybeSingle().then(({ data }) => {
+        supabase.from('garages').select('id').eq('owner_id', newSession.user.id).limit(1).maybeSingle().then(({ data }) => {
           if (data && isMounted) {
             setGarageId(data.id);
           } else if (isMounted) {
@@ -101,6 +119,7 @@ export default function App() {
       subscription.unsubscribe();
     };
   }, []);
+
 
   useEffect(() => {
     if (role === 'owner' && garageId) {
@@ -127,6 +146,7 @@ export default function App() {
         isVerified: true,
         status: 'active',
         completedJobs: 0,
+        rating: 5,
         createdAt: m.created_at ? new Date(m.created_at).getTime() : 0,
         colorBadge: m.color_badge
       })));
@@ -269,10 +289,9 @@ export default function App() {
   };
 
   const handleSignOut = () => {
-    if(role === 'owner') {
-      supabase.auth.signOut();
-      setGarageId(null);
-    }
+    supabase.auth.signOut();
+    setSession(null);
+    setGarageId(null);
     setRole(null);
     setMechanicId(null);
   };
@@ -283,6 +302,55 @@ export default function App() {
         <Sparkles className="w-12 h-12 animate-pulse" />
         <h2 className="text-xl font-black tracking-widest uppercase mb-12">Checking Authorization...</h2>
       </div>
+    );
+  }
+
+  // 1. Worker Onboarding via Invite URL (?invite=garage_id)
+  if (inviteGarageId) {
+    return (
+      <JoinScreen
+        garageId={inviteGarageId}
+        onJoinSuccess={() => {
+          setInviteGarageId(null);
+        }}
+        onCancel={() => {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('invite');
+          window.history.replaceState({}, '', url.toString());
+          setInviteGarageId(null);
+        }}
+      />
+    );
+  }
+
+  // 2. Multi-Tier Role Routing for Authenticated Supabase Users
+  if (session) {
+    return (
+      <RoleRouter
+        userId={session.user.id}
+        userEmail={session.user.email}
+        onSignOut={handleSignOut}
+        jobs={jobs}
+        deferredRepairs={deferredRepairs}
+        workers={workers}
+        todayRevenue={todayRevenue}
+        onUpdateJob={handleUpdateJob}
+        onJobReleased={handleJobReleased}
+        onAddJob={handleJobCreated}
+        onAddDeferredRepair={async (rep, jobId) => {
+          try {
+            if (!jobId) return;
+            const dbRep = await createDeferredRepair(rep, jobId);
+            setDeferredRepairs((prev) => [dbRep, ...prev]);
+          } catch (e) {
+            console.error(e);
+          }
+        }}
+        onAddWorker={handleAddWorker}
+        onDeleteWorker={handleDeleteWorker}
+        onUpdatePin={handleUpdatePin}
+        onToggleStatus={handleToggleWorkerStatus}
+      />
     );
   }
 

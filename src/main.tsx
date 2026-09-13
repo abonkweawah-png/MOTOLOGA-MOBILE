@@ -3,11 +3,33 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
-class ErrorBoundary extends Component<{children: ReactNode}, {error: Error | null}> {
-  state = { error: null };
-  static getDerivedStateFromError(error: Error) { return { error }; }
+interface ErrorBoundaryProps {
+  children: ReactNode;
+}
+
+interface ErrorBoundaryState {
+  error: Error | null;
+}
+
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { error: null };
+  
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { error };
+  }
+
   render() {
-    if (this.state.error) return <div style={{color:'red', padding: '20px'}}><pre>{this.state.error.stack || this.state.error.toString()}</pre></div>;
+    if (this.state.error) {
+      return (
+        <div style={{ color: 'red', padding: '20px' }}>
+          <pre>{this.state.error.stack || this.state.error.toString()}</pre>
+        </div>
+      );
+    }
     return this.props.children;
   }
 }

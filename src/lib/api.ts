@@ -216,3 +216,158 @@ export const createDeferredRepair = async (repair: DeferredRepair, jobId: string
   if (error || !data) throw new Error(error?.message || "Failed to create deferred repair");
   return data;
 };
+
+// ==========================================
+// Multi-Tier Departments & Membership API
+// ==========================================
+
+export const fetchGarage = async (garageId: string) => {
+  const { data, error } = await supabase
+    .from('garages')
+    .select('*')
+    .eq('id', garageId)
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+export const fetchDepartments = async (garageId: string) => {
+  const { data, error } = await supabase
+    .from('departments')
+    .select('*')
+    .eq('garage_id', garageId)
+    .order('name', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching departments:', error);
+    return [];
+  }
+  return data || [];
+};
+
+export const createDepartment = async (garageId: string, name: string, description?: string) => {
+  const { data, error } = await supabase
+    .from('departments')
+    .insert({
+      garage_id: garageId,
+      name,
+      description,
+    })
+    .select()
+    .single();
+
+  if (error || !data) throw new Error(error?.message || 'Failed to create department');
+  return data;
+};
+
+export const deleteDepartment = async (departmentId: string) => {
+  const { data, error } = await supabase
+    .from('departments')
+    .delete()
+    .eq('id', departmentId)
+    .select()
+    .single();
+
+  if (error || !data) throw new Error(error?.message || 'Failed to delete department');
+  return data;
+};
+
+export const fetchGarageMembers = async (garageId: string) => {
+  const { data, error } = await supabase
+    .from('garage_members')
+    .select(`
+      *,
+      departments (
+        id,
+        name
+      )
+    `)
+    .eq('garage_id', garageId);
+
+  if (error) {
+    console.error('Error fetching garage members:', error);
+    return [];
+  }
+  return data || [];
+};
+
+export const updateMemberDepartment = async (memberId: string, departmentId: string | null) => {
+  const { data, error } = await supabase
+    .from('garage_members')
+    .update({ department_id: departmentId })
+    .eq('id', memberId)
+    .select()
+    .single();
+
+  if (error || !data) throw new Error(error?.message || 'Failed to update department assignment');
+  return data;
+};
+
+export const updateMemberHod = async (memberId: string, isHod: boolean) => {
+  const { data, error } = await supabase
+    .from('garage_members')
+    .update({ is_hod: isHod })
+    .eq('id', memberId)
+    .select()
+    .single();
+
+  if (error || !data) throw new Error(error?.message || 'Failed to update HOD role');
+  return data;
+};
+
+export const removeMemberFromDepartment = async (memberId: string) => {
+  const { data, error } = await supabase
+    .from('garage_members')
+    .update({ department_id: null, is_hod: false })
+    .eq('id', memberId)
+    .select()
+    .single();
+
+  if (error || !data) throw new Error(error?.message || 'Failed to remove worker from department');
+  return data;
+};
+
+export const joinGarageMember = async (
+  garageId: string,
+  userId: string,
+  departmentId: string,
+  role: 'worker' = 'worker',
+  email?: string,
+  fullName?: string
+) => {
+  const payload: any = {
+    garage_id: garageId,
+    user_id: userId,
+    role,
+    department_id: departmentId || null,
+    is_hod: false,
+  };
+  if (email) payload.email = email;
+  if (fullName) payload.full_name = fullName;
+
+  const { data, error } = await supabase
+    .from('garage_members')
+    .insert(payload)
+    .select()
+    .single();
+
+  if (error || !data) throw new Error(error?.message || 'Failed to join garage');
+  return data;
+};
+
+export const updateGarageSubscription = async (
+  garageId: string,
+  status: 'active' | 'past_due' | 'trialing'
+) => {
+  const { data, error } = await supabase
+    .from('garages')
+    .update({ subscription_status: status })
+    .eq('id', garageId)
+    .select()
+    .single();
+
+  if (error || !data) throw new Error(error?.message || 'Failed to update subscription status');
+  return data;
+};
+

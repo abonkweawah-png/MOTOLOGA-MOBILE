@@ -134,7 +134,7 @@ export const AnimatedTabBar: React.FC<AnimatedTabBarProps> = ({
             <button
               key={item.id || index}
               id={item.id || `tab-item-${index}`}
-              ref={(el) => (itemRefs.current[index] = el)}
+              ref={(el) => { itemRefs.current[index] = el; }}
               type="button"
               className={`menu__item ${isActive ? "active" : ""}`}
               style={{ "--bgColorItem": item.color } as React.CSSProperties}

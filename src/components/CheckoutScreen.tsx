@@ -66,7 +66,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
     currentJob?.deferredRepair?.component || DEFERRED_COMPONENTS[0]
   );
   const [deferredTimeframe, setDeferredTimeframe] = useState<DeferredTimeframe>(
-    currentJob?.deferredRepair?.timeframe || 'Next Month'
+    (currentJob?.deferredRepair?.timeframe as DeferredTimeframe) || 'Next Month'
   );
 
   // Modal receipt state
@@ -83,7 +83,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
       setDeferredComponent(job.deferredRepair.component);
     }
     if (job.deferredRepair?.timeframe) {
-      setDeferredTimeframe(job.deferredRepair.timeframe);
+      setDeferredTimeframe(job.deferredRepair.timeframe as DeferredTimeframe);
     }
   };
 

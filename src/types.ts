@@ -110,3 +110,34 @@ export function generateWhatsAppReminderUrl(customerPhone: string, componentToFi
   const message = `Bonjour, this is MOTOLOGA Garage. You asked us to remind you regarding the ${componentToFix} for vehicle ${vehiclePlate}. Are you available to bring the car in soon?`;
   return `https://wa.me/237${cleanPhone}?text=${encodeURIComponent(message)}`;
 }
+
+export type SubscriptionStatus = 'active' | 'trialing' | 'past_due' | 'canceled' | 'incomplete';
+
+export interface Garage {
+  id: string;
+  owner_id: string;
+  name: string;
+  subscription_status?: SubscriptionStatus;
+  created_at?: string;
+}
+
+export interface Department {
+  id: string;
+  garage_id: string;
+  name: string;
+  description?: string;
+  created_at?: string;
+}
+
+export interface GarageMember {
+  id: string;
+  garage_id: string;
+  user_id: string;
+  role: 'owner' | 'worker';
+  department_id: string | null;
+  is_hod: boolean;
+  email?: string;
+  full_name?: string;
+  created_at?: string;
+  department?: Department;
+}
